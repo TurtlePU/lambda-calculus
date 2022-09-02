@@ -19,6 +19,7 @@ extra-source-files:
 library
     exposed-modules:
         Bindings
+        Term
     build-depends:
         base
       , bytestring

@@ -5,8 +5,7 @@ import Data.ByteString (unpack)
 import Data.String (IsString (fromString))
 import Data.Trie (Trie)
 import qualified Data.Trie as Trie
-
-data Term
+import Term
 
 type Bindings = Trie Term
 
