@@ -52,9 +52,9 @@ parseCommand s = case runParser command "<interactive>" s of
           _ -> return . Just . Say $ UnknownCommand w
 
     binding = Label <$> lex name <* char '=' <*> term
-    term = sc *> (foldl1' App <$> sepEndBy1 atom sc)
+    term = foldl1' App <$> spaced atom
     atom =
-      char '\\' *> (Abs <$> lex name <* string "->" <*> term)
+      char '\\' *> (flip (foldr Abs) <$> spaced name <* string "->" <*> term)
         <|> between (char '(') (char ')') term
         <|> Var 0 <$> name
 
@@ -71,6 +71,7 @@ parseCommand s = case runParser command "<interactive>" s of
         ]
     loadMode = maybe Reset (const Append) <$> optional (sym "+")
 
+    spaced p = sc *> sepEndBy1 p sc
     name = (:) <$> letterChar <*> many alphaNumChar
     lex = L.lexeme sc
     sym = L.symbol sc
