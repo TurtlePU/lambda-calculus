@@ -2,11 +2,8 @@
 
 module Main where
 
-import Codec.Binary.UTF8.String (decode)
+import Bindings
 import Control.Monad.State.Strict
-import Data.ByteString (unpack)
-import Data.String (IsString (fromString))
-import Data.Trie
 import System.Console.Haskeline
 
 main :: IO ()
@@ -28,10 +25,3 @@ completeFromBindings = completeWord escapeChar whitespace impl
 
 loop :: InputT (StateT Bindings IO) ()
 loop = return ()
-
-data Term
-
-type Bindings = Trie Term
-
-matchingKeys :: String -> Bindings -> [String]
-matchingKeys s = map (decode . unpack) . keys . submap (fromString s)

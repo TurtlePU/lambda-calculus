@@ -16,14 +16,23 @@ extra-source-files:
   CHANGELOG.md
   README.md
 
+library
+    exposed-modules:
+        Bindings
+    build-depends:
+        base
+      , bytestring
+      , utf8-string
+      , bytestring-trie
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
 executable lambda-calculus
     main-is:          Main.hs
     build-depends:
         base ^>=4.14.3.0
       , mtl ^>=2.3
-      , bytestring
-      , utf8-string
-      , bytestring-trie ^>=0.2
       , haskeline ^>=0.8
+      , lambda-calculus
     hs-source-dirs:   app
     default-language: Haskell2010
