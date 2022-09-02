@@ -57,9 +57,8 @@ loop =
         (Eval em te) -> say "TODO"
         (Load lm ss) -> say "TODO"
         Reload -> say "TODO"
-        (SetPrompt s) -> say "TODO"
         Repeat -> say onRepeat
-        Help -> say helpText
+        Say text -> say text
         Quit -> exit
   where
     say str = outputStrLn str >> loop
