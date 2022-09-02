@@ -32,7 +32,7 @@ instance Show Binding where
 main :: IO ()
 main = evalStateT (runInputT settings loop) app
   where
-    app = App {bindings = empty, lastCommand = defaultCommand}
+    app = App {bindings = empty, lastCommand = Say NoLastCommand}
     settings =
       Settings
         { complete = completeFromBindings,
@@ -62,7 +62,7 @@ loop = do
       reply . unlines $ map show bindings
     (Load lm ss) -> reply "TODO"
     Reload -> reply "TODO"
-    Say text -> reply text
+    Say msg -> reply $ show msg
     Quit -> outputStrLn "Leaving Lambda."
   where
     reply str = outputStrLn str >> loop
