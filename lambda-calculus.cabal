@@ -18,6 +18,7 @@ extra-source-files:
 
 library
     exposed-modules:
+        Data.Labeled
         Data.StringTrie
         Term
     build-depends:

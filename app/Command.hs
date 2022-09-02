@@ -3,10 +3,11 @@
 module Command where
 
 import Data.Char (isSpace, isUpper)
+import Data.Labeled (Labeled (Label))
 import Term
 
 data Command
-  = CBind String Term
+  = Bind (Labeled Term)
   | ShowBindings
   | Eval EvalMode Term
   | Load LoadMode [FilePath]
@@ -45,7 +46,7 @@ parseCommand s = Just $ case words s of
   ":show" : args -> parseShow args
   ":sh" : args -> parseShow args
   (':' : cmd) : _ -> Say (UnknownCommand cmd)
-  name : "=" : ws -> CBind name (error "TODO")
+  name : "=" : ws -> Bind . Label name $ error "TODO"
   ws -> Eval Silent (error "TODO")
   where
     parseLoad ("+" : ms) | areModules ms = Load Append ms

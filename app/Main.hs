@@ -3,6 +3,7 @@ module Main where
 import Command
 import Control.Monad.State.Strict
 import Data.Functor (($>))
+import Data.Labeled
 import Data.StringTrie
 import System.Console.Haskeline
 import Term (Term)
@@ -17,15 +18,8 @@ matchingKeys s = keys . submap s . bindings
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
 
-allBindings :: AppState -> [Binding]
-allBindings = map (uncurry Bind) . toList . bindings
-
------------------------------------ Bindings -----------------------------------
-
-data Binding = Bind String Term
-
-instance Show Binding where
-  show (Bind name term) = name ++ " = " ++ show term
+allBindings :: AppState -> [Labeled Term]
+allBindings = map (uncurry Label) . toList . bindings
 
 ------------------------------------- REPL -------------------------------------
 
@@ -55,7 +49,7 @@ loop = do
     Nothing -> lastCommand <$> get
     Just cmd -> modify (writeCmd cmd) $> cmd
   case command of
-    (CBind s te) -> reply "TODO"
+    (Bind l) -> reply "TODO"
     (Eval em te) -> reply "TODO"
     ShowBindings -> do
       bindings <- lift $ allBindings <$> get
