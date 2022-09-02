@@ -2,7 +2,7 @@
 
 module Command where
 
-import Data.Char (isUpper)
+import Data.Char (isSpace, isUpper)
 import Term
 
 data Command
@@ -11,7 +11,6 @@ data Command
   | Eval EvalMode Term
   | Load LoadMode [FilePath]
   | Reload
-  | Repeat
   | Say String
   | Quit
 
@@ -22,14 +21,15 @@ data LoadMode = Reset | Append
 commandPrefix :: Char
 commandPrefix = ':'
 
-onRepeat :: String
-onRepeat =
-  "there is no last command to perform\n\
-  \use :? for help."
+defaultCommand :: Command
+defaultCommand =
+  Say
+    "there is no last command to perform\n\
+    \use :? for help."
 
-parseCommand :: String -> Command
-parseCommand s = case words s of
-  ":" : _ -> Repeat
+parseCommand :: String -> Maybe Command
+parseCommand (':' : s) | all isSpace s = Nothing
+parseCommand s = Just $ case words s of
   ":help" : _ -> Say help
   ":h" : _ -> Say help
   ":?" : _ -> Say help

@@ -1,10 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
-
 module Main where
 
 import Command
-import Control.Monad (void)
 import Control.Monad.State.Strict
 import Data.Functor (($>))
 import Data.StringTrie
@@ -14,9 +10,6 @@ import Term (Term)
 ----------------------------------- AppState -----------------------------------
 
 data AppState = App {bindings :: StringTrie Term, lastCommand :: Command}
-
-app :: AppState
-app = App empty Repeat
 
 matchingKeys :: String -> AppState -> [String]
 matchingKeys s = keys . submap s . bindings
@@ -35,31 +28,29 @@ main = evalStateT (runInputT settings loop) app
           historyFile = Just ".lambda_history",
           autoAddHistory = True
         }
+    app = App {bindings = empty, lastCommand = defaultCommand}
 
 completeFromBindings :: CompletionFunc (StateT AppState IO)
 completeFromBindings = completeWord escapeChar whitespace impl
   where
+    impl :: Monad m => String -> StateT AppState m [Completion]
+    impl s = map simpleCompletion . matchingKeys s <$> get
     escapeChar = Just commandPrefix
     whitespace = " ()\\>"
-    impl s = map simpleCompletion . matchingKeys s <$> get
 
 loop :: InputT (StateT AppState IO) ()
-loop =
-  getInputLine "> " >>= \case
-    Nothing -> exit
-    Just line -> do
-      command <- lift $ case parseCommand line of
-        Repeat -> lastCommand <$> get
-        cmd -> modify (writeCmd cmd) $> cmd
-      case command of
-        (Bind s te) -> say "TODO"
-        ShowBindings -> say "TODO"
-        (Eval em te) -> say "TODO"
-        (Load lm ss) -> say "TODO"
-        Reload -> say "TODO"
-        Repeat -> say onRepeat
-        Say text -> say text
-        Quit -> exit
+loop = do
+  line <- getInputLine "> "
+  command <- lift $ case maybe (Just Quit) parseCommand line of
+    Nothing -> lastCommand <$> get
+    Just cmd -> modify (writeCmd cmd) $> cmd
+  case command of
+    (Bind s te) -> say "TODO"
+    ShowBindings -> say "TODO"
+    (Eval em te) -> say "TODO"
+    (Load lm ss) -> say "TODO"
+    Reload -> say "TODO"
+    Say text -> say text
+    Quit -> outputStrLn "Leaving Lambda."
   where
     say str = outputStrLn str >> loop
-    exit = void $ outputStrLn "Leaving Lambda."
