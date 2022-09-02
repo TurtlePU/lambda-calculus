@@ -17,18 +17,28 @@ matchingKeys s = keys . submap s . bindings
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
 
+allBindings :: AppState -> [Binding]
+allBindings = map (uncurry Bind) . toList . bindings
+
+----------------------------------- Bindings -----------------------------------
+
+data Binding = Bind String Term
+
+instance Show Binding where
+  show (Bind name term) = name ++ " = " ++ show term
+
 ------------------------------------- REPL -------------------------------------
 
 main :: IO ()
 main = evalStateT (runInputT settings loop) app
   where
+    app = App {bindings = empty, lastCommand = defaultCommand}
     settings =
       Settings
         { complete = completeFromBindings,
           historyFile = Just ".lambda_history",
           autoAddHistory = True
         }
-    app = App {bindings = empty, lastCommand = defaultCommand}
 
 completeFromBindings :: CompletionFunc (StateT AppState IO)
 completeFromBindings = completeWord escapeChar whitespace impl
@@ -45,12 +55,14 @@ loop = do
     Nothing -> lastCommand <$> get
     Just cmd -> modify (writeCmd cmd) $> cmd
   case command of
-    (Bind s te) -> say "TODO"
-    ShowBindings -> say "TODO"
-    (Eval em te) -> say "TODO"
-    (Load lm ss) -> say "TODO"
-    Reload -> say "TODO"
-    Say text -> say text
+    (CBind s te) -> reply "TODO"
+    (Eval em te) -> reply "TODO"
+    ShowBindings -> do
+      bindings <- lift $ allBindings <$> get
+      reply . unlines $ map show bindings
+    (Load lm ss) -> reply "TODO"
+    Reload -> reply "TODO"
+    Say text -> reply text
     Quit -> outputStrLn "Leaving Lambda."
   where
-    say str = outputStrLn str >> loop
+    reply str = outputStrLn str >> loop

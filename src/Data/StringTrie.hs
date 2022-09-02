@@ -1,7 +1,8 @@
 module Data.StringTrie where
 
 import Codec.Binary.UTF8.String (decode)
-import Data.ByteString (unpack)
+import Data.Bifunctor (first)
+import Data.ByteString (ByteString, unpack)
 import Data.String (IsString (fromString))
 import Data.Trie (Trie)
 import qualified Data.Trie as T
@@ -12,7 +13,13 @@ empty :: StringTrie a
 empty = T.empty
 
 keys :: StringTrie a -> [String]
-keys = map (decode . unpack) . T.keys
+keys = map toString . T.keys
+
+toList :: StringTrie a -> [(String, a)]
+toList = map (first toString) . T.toList
 
 submap :: String -> StringTrie a -> StringTrie a
 submap = T.submap . fromString
+
+toString :: ByteString -> String
+toString = decode . unpack

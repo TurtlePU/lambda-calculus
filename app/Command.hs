@@ -6,7 +6,7 @@ import Data.Char (isSpace, isUpper)
 import Term
 
 data Command
-  = Bind String Term
+  = CBind String Term
   | ShowBindings
   | Eval EvalMode Term
   | Load LoadMode [FilePath]
@@ -44,7 +44,7 @@ parseCommand s = Just $ case words s of
   ":show" : args -> parseShow args
   ":sh" : args -> parseShow args
   (':' : cmd) : _ -> Say (onUnknown cmd)
-  name : "=" : ws -> Bind name (error "TODO")
+  name : "=" : ws -> CBind name (error "TODO")
   ws -> Eval Silent (error "TODO")
   where
     parseLoad ("+" : ms) | areModules ms = Load Append ms
@@ -80,4 +80,4 @@ parseCommand s = Just $ case words s of
       \   :trace <expr>               evaluate <expr> with tracing on (TODO)\n\n\
       \ -- Commands for displaying information:\n\n\
       \   :show bindings              \
-      \show the current bindings made at the prompt (TODO)\n"
+      \show the current bindings made at the prompt\n"
