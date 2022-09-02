@@ -3,7 +3,7 @@
 
 module Main where
 
-import Command (Command (..), parseCommand)
+import Command
 import Control.Monad (void)
 import Control.Monad.State.Strict
 import Data.Functor (($>))
@@ -39,7 +39,7 @@ main = evalStateT (runInputT settings loop) app
 completeFromBindings :: CompletionFunc (StateT AppState IO)
 completeFromBindings = completeWord escapeChar whitespace impl
   where
-    escapeChar = Just ':'
+    escapeChar = Just commandPrefix
     whitespace = " ()\\>"
     impl s = map simpleCompletion . matchingKeys s <$> get
 
@@ -58,30 +58,9 @@ loop =
         (Load lm ss) -> say "TODO"
         Reload -> say "TODO"
         (SetPrompt s) -> say "TODO"
-        Repeat -> say noLastCommand
+        Repeat -> say onRepeat
         Help -> say helpText
         Quit -> exit
   where
     say str = outputStrLn str >> loop
     exit = void $ outputStrLn "Leaving Lambda."
-    noLastCommand =
-      "there is no last command to perform\n\
-      \use :? for help."
-    helpText =
-      " Commands available from the prompt:\n\n\
-      \   <statement>                 evaluate/run <statement> (TODO)\n\
-      \   :                           repeat last command (TODO)\n\
-      \   :{\\n ..lines.. \\n:}\\n       multiline command (TODO)\n\
-      \   :help, :?                   display this list of commands\n\
-      \   :module [+] <module> ...  \
-      \set the context for expression evaluation (TODO)\n\
-      \   :quit                       exit Lambda (TODO)\n\
-      \   :reload                     reload the current module set (TODO)\n\n\
-      \ -- Commands for debugging:\n\n\
-      \   :trace <expr>               \
-      \evaluate <expr> with tracing on (TODO)\n\n\
-      \ -- Commands for changing settings:\n\n\
-      \   :set prompt <prompt>        set the prompt used in Lambda (TODO)\n\n\
-      \ -- Commands for displaying information:\n\n\
-      \   :show bindings              \
-      \show the current bindings made at the prompt (TODO)\n"
