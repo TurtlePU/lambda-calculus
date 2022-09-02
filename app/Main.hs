@@ -43,7 +43,7 @@ completeFromBindings = completeWord escapeChar whitespace impl
   where
     impl :: Monad m => String -> StateT AppState m [Completion]
     impl s = map simpleCompletion . matchingKeys s <$> get
-    escapeChar = Just commandPrefix
+    escapeChar = Just prefix
     whitespace = " ()\\>"
 
 loop :: InputT (StateT AppState IO) ()

@@ -15,8 +15,14 @@ empty = T.empty
 keys :: StringTrie a -> [String]
 keys = map toString . T.keys
 
+fromList :: [(String, a)] -> StringTrie a
+fromList = T.fromList . map (first fromString)
+
 toList :: StringTrie a -> [(String, a)]
 toList = map (first toString) . T.toList
+
+elems :: StringTrie a -> [a]
+elems = T.elems
 
 submap :: String -> StringTrie a -> StringTrie a
 submap = T.submap . fromString

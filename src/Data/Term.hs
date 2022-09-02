@@ -5,7 +5,7 @@ import Data.List.NonEmpty (NonEmpty, last, unfoldr)
 import Prelude hiding (last)
 
 data Term
-  = Var String Int
+  = Var Int String
   | App Term Term
   | Abs String Term
 
@@ -28,17 +28,17 @@ substitute x = shift (-1) . replace (0, shift 1 x)
     shift = shift' 0
 
     shift' :: Int -> Int -> Term -> Term
-    shift' b a v@(Var n x) = if x < b then v else Var n (x + a)
+    shift' b a v@(Var x n) = if x < b then v else Var (x + a) n
     shift' b a (App f x) = App (shift' b a f) (shift' b a x)
     shift' b a (Abs n t) = Abs n (shift' (b + 1) a t)
 
     replace :: (Int, Term) -> Term -> Term
-    replace (x, t) v@(Var n y) = if x == y then t else v
+    replace (x, t) v@(Var y n) = if x == y then t else v
     replace p (App f x) = App (replace p f) (replace p x)
     replace (x, t) (Abs n v) = Abs n (replace (x + 1, shift 1 t) v)
 
 instance Show Term where
-  show (Var x _) = x
+  show (Var _ x) = x
   show (App f x@(Var _ _)) = show f ++ " " ++ show x
   show (App f x) = show f ++ " (" ++ show x ++ ")"
   show (Abs x t) = "\\" ++ x ++ " -> " ++ show t
