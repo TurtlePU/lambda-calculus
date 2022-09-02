@@ -3,23 +3,23 @@
 
 module Main where
 
-import Bindings (Bindings)
-import qualified Bindings as B
 import Command (Command (..), parseCommand)
 import Control.Monad (void)
 import Control.Monad.State.Strict
 import Data.Functor (($>))
+import Data.StringTrie
 import System.Console.Haskeline
+import Term (Term)
 
 ----------------------------------- AppState -----------------------------------
 
-data AppState = App {bindings :: Bindings, lastCommand :: Command}
+data AppState = App {bindings :: StringTrie Term, lastCommand :: Command}
 
 app :: AppState
-app = App B.empty Repeat
+app = App empty Repeat
 
 matchingKeys :: String -> AppState -> [String]
-matchingKeys s = B.matchingKeys s . bindings
+matchingKeys s = keys . submap s . bindings
 
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
