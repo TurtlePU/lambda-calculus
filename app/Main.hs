@@ -3,19 +3,31 @@
 
 module Main where
 
-import Bindings
-import Command
+import Bindings (Bindings)
+import qualified Bindings as B
+import Command (Command (..), parseCommand)
 import Control.Monad (void)
 import Control.Monad.State.Strict
+import Data.Functor (($>))
 import System.Console.Haskeline
+
+----------------------------------- AppState -----------------------------------
 
 data AppState = App {bindings :: Bindings, lastCommand :: Command}
 
+app :: AppState
+app = App B.empty Repeat
+
+matchingKeys :: String -> AppState -> [String]
+matchingKeys s = B.matchingKeys s . bindings
+
 writeCmd :: Command -> AppState -> AppState
-writeCmd c s = s { lastCommand = c }
+writeCmd c s = s {lastCommand = c}
+
+------------------------------------- REPL -------------------------------------
 
 main :: IO ()
-main = evalStateT (runInputT settings loop) (App empty Repeat)
+main = evalStateT (runInputT settings loop) app
   where
     settings =
       Settings
@@ -27,9 +39,9 @@ main = evalStateT (runInputT settings loop) (App empty Repeat)
 completeFromBindings :: CompletionFunc (StateT AppState IO)
 completeFromBindings = completeWord escapeChar whitespace impl
   where
-    escapeChar = Nothing
+    escapeChar = Just ':'
     whitespace = " ()\\>"
-    impl s = map simpleCompletion . matchingKeys s . bindings <$> get
+    impl s = map simpleCompletion . matchingKeys s <$> get
 
 loop :: InputT (StateT AppState IO) ()
 loop =
@@ -38,21 +50,19 @@ loop =
     Just line -> do
       command <- lift $ case parseCommand line of
         Repeat -> lastCommand <$> get
-        cmd -> cmd <$ modify (writeCmd cmd)
-      result <- case command of
-        (Bind s te) -> return (Just "TODO")
-        ShowBindings -> return (Just "TODO")
-        (Eval em te) -> return (Just "TODO")
-        (Load lm ss) -> return (Just "TODO")
-        Reload -> return (Just "TODO")
-        (SetPrompt s) -> return (Just "TODO")
-        Repeat -> return (Just noLastCommand)
-        Help -> return (Just helpText)
-        Quit -> return Nothing
-      case result of
-        Just str -> outputStrLn str >> loop
-        Nothing -> exit
+        cmd -> modify (writeCmd cmd) $> cmd
+      case command of
+        (Bind s te) -> say "TODO"
+        ShowBindings -> say "TODO"
+        (Eval em te) -> say "TODO"
+        (Load lm ss) -> say "TODO"
+        Reload -> say "TODO"
+        (SetPrompt s) -> say "TODO"
+        Repeat -> say noLastCommand
+        Help -> say helpText
+        Quit -> exit
   where
+    say str = outputStrLn str >> loop
     exit = void $ outputStrLn "Leaving Lambda."
     noLastCommand =
       "there is no last command to perform\n\
