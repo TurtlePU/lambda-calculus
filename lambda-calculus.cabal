@@ -20,7 +20,7 @@ library
     exposed-modules:
         Data.Labeled
         Data.StringTrie
-        Term
+        Data.Term
     build-depends:
         base
       , bytestring

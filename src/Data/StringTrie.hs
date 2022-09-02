@@ -21,5 +21,8 @@ toList = map (first toString) . T.toList
 submap :: String -> StringTrie a -> StringTrie a
 submap = T.submap . fromString
 
+insert :: String -> a -> StringTrie a -> StringTrie a
+insert = T.insert . fromString
+
 toString :: ByteString -> String
 toString = decode . unpack

@@ -2,11 +2,12 @@ module Main where
 
 import Command
 import Control.Monad.State.Strict
+import Data.Foldable (for_)
 import Data.Functor (($>))
-import Data.Labeled
+import Data.Labeled (Labeled (Label))
 import Data.StringTrie
+import Data.Term (Term, normalOrder, normalOrderLog)
 import System.Console.Haskeline
-import Term (Term)
 
 ----------------------------------- AppState -----------------------------------
 
@@ -14,6 +15,9 @@ data AppState = App {bindings :: StringTrie Term, lastCommand :: Command}
 
 matchingKeys :: String -> AppState -> [String]
 matchingKeys s = keys . submap s . bindings
+
+writeBinding :: String -> Term -> AppState -> AppState
+writeBinding n t (App bs lc) = App (insert n t bs) lc
 
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
@@ -49,14 +53,17 @@ loop = do
     Nothing -> lastCommand <$> get
     Just cmd -> modify (writeCmd cmd) $> cmd
   case command of
-    (Bind l) -> reply "TODO"
-    (Eval em te) -> reply "TODO"
-    ShowBindings -> do
-      bindings <- lift $ allBindings <$> get
-      reply . unlines $ map show bindings
+    (Bind (Label nm te)) -> do
+      lift . modify . writeBinding nm $ normalOrder te
+      loop
+    (Eval em te) -> case em of
+      Trace -> replyAll (normalOrderLog te)
+      Silent -> reply (normalOrder te)
+    ShowBindings -> lift (allBindings <$> get) >>= replyAll
     (Load lm ss) -> reply "TODO"
     Reload -> reply "TODO"
-    Say msg -> reply $ show msg
+    Say msg -> reply msg
     Quit -> outputStrLn "Leaving Lambda."
   where
-    reply str = outputStrLn str >> loop
+    reply x = outputStrLn (show x) >> loop
+    replyAll xs = for_ xs (outputStrLn . show) >> loop

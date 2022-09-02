@@ -4,7 +4,7 @@ module Command where
 
 import Data.Char (isSpace, isUpper)
 import Data.Labeled (Labeled (Label))
-import Term
+import Data.Term (Term)
 
 data Command
   = Bind (Labeled Term)
@@ -68,7 +68,7 @@ instance Show Message where
     "unknown command ':" ++ cmd ++ "'\nuse :? for help."
   show Help =
     " Commands available from the prompt:\n\n\
-    \   <statement>                 evaluate/run <statement> (TODO)\n\
+    \   <statement>                 evaluate/run <statement>\n\
     \   :                           repeat last command\n\
     \   :{\\n ..lines.. \\n:}\\n       multiline command (TODO)\n\
     \   :help, :?                   display this list of commands\n\
@@ -77,7 +77,7 @@ instance Show Message where
     \   :quit                       exit Lambda\n\
     \   :reload                     reload the current module set (TODO)\n\n\
     \ -- Commands for debugging:\n\n\
-    \   :trace <expr>               evaluate <expr> with tracing on (TODO)\n\n\
+    \   :trace <expr>               evaluate <expr> with tracing on\n\n\
     \ -- Commands for displaying information:\n\n\
     \   :show bindings              \
     \show the current bindings made at the prompt\n"
