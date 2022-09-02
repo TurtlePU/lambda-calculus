@@ -24,6 +24,9 @@ toList = map (first toString) . T.toList
 elems :: StringTrie a -> [a]
 elems = T.elems
 
+lookup :: String -> StringTrie a -> Maybe a
+lookup = T.lookup . fromString
+
 submap :: String -> StringTrie a -> StringTrie a
 submap = T.submap . fromString
 

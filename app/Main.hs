@@ -6,7 +6,7 @@ import Data.Foldable (for_)
 import Data.Functor (($>))
 import Data.Labeled (Labeled (Label))
 import Data.StringTrie
-import Data.Term (Term, normalOrder, normalOrderLog)
+import Data.Term hiding (App)
 import System.Console.Haskeline
 
 ----------------------------------- AppState -----------------------------------
@@ -24,6 +24,9 @@ writeCmd c s = s {lastCommand = c}
 
 allBindings :: AppState -> [Labeled Term]
 allBindings = map (uncurry Label) . toList . bindings
+
+resolve' :: Term -> AppState -> Either ResolveError Term
+resolve' t = flip resolve t . bindings
 
 ------------------------------------- REPL -------------------------------------
 
@@ -53,13 +56,9 @@ loop = do
     Nothing -> lastCommand <$> get
     Just cmd -> modify (writeCmd cmd) $> cmd
   case command of
-    (Bind (Label nm te)) -> do
-      lift . modify . writeBinding nm $ normalOrder te
-      loop
-    (Eval em te) -> case em of
-      Trace -> replyAll (normalOrderLog te)
-      Silent -> reply (normalOrder te)
-    ShowBindings -> lift (allBindings <$> get) >>= replyAll
+    (Bind (Label nm te)) -> lift get >>= onBindingResolve nm . resolve' te
+    (Eval em te) -> lift get >>= onEvalResolve em . resolve' te
+    ShowBindings -> lift get >>= replyAll . allBindings
     (Load lm ss) -> reply "TODO"
     Reload -> reply "TODO"
     Say msg -> reply msg
@@ -67,3 +66,13 @@ loop = do
   where
     reply x = outputStrLn (show x) >> loop
     replyAll xs = for_ xs (outputStrLn . show) >> loop
+
+    onBindingResolve _ (Left e) = reply e
+    onBindingResolve nm (Right t) = do
+      lift . modify . writeBinding nm $ normalOrder t
+      loop
+
+    onEvalResolve _ (Left e) = reply e
+    onEvalResolve em (Right t) = case em of
+      Trace -> replyAll (normalOrderLog t)
+      Silent -> reply (normalOrder t)
