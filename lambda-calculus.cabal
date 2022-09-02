@@ -19,6 +19,7 @@ extra-source-files:
 library
     exposed-modules:
         Bindings
+        Command
         Term
     build-depends:
         base
