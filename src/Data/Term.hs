@@ -1,6 +1,7 @@
 module Data.Term where
 
 import Control.Applicative ((<|>))
+import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty, last, unfoldr)
 import Data.StringTrie (StringTrie, insert, lookup)
 import Prelude hiding (last, lookup)
@@ -20,19 +21,27 @@ resolve st (App f x) = App <$> resolve st f <*> resolve st x
 resolve st (Abs x t) =
   Abs x <$> resolve (insert x (Var 0 x) $ fmap (shift 1) st) t
 
-normalOrder :: Term -> Term
-normalOrder = last . normalOrderLog
+type SmallStep = Term -> Maybe Term
 
-normalOrderLog :: Term -> NonEmpty Term
-normalOrderLog = unfoldr $ (,) <*> normalOrderStep
+type NanoStep = SmallStep -> SmallStep
 
-normalOrderStep :: Term -> Maybe Term
-normalOrderStep (Abs n t) = Abs n <$> normalOrderStep t
-normalOrderStep (App (Abs _ t) x) = Just $ substitute x t
-normalOrderStep (App f x) =
-  (`App` x) <$> normalOrderStep f
-    <|> App f <$> normalOrderStep x
-normalOrderStep _ = Nothing
+bigStep :: SmallStep -> Term -> Term
+bigStep step = last . stepLog step
+
+stepLog :: SmallStep -> Term -> NonEmpty Term
+stepLog step = unfoldr $ (,) <*> step
+
+smallStep :: NanoStep -> SmallStep
+smallStep = fix
+
+normal :: NanoStep
+normal _ (App (Abs _ t) x) = Just $ substitute x t
+normal step (App f x) = (`App` x) <$> step f <|> App f <$> step x
+normal _ _ = Nothing
+
+forced :: NanoStep
+forced step (Abs x t) = Abs x <$> step t
+forced step t = normal step t
 
 substitute :: Term -> Term -> Term
 substitute x = shift (-1) . replace (0, shift 1 x)

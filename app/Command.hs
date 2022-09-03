@@ -15,13 +15,15 @@ import qualified Text.Megaparsec.Char.Lexer as L
 data Command
   = Bind (Labeled Term)
   | ShowBindings
-  | Eval EvalMode Term
+  | Eval Normalization Tracing Term
   | Load LoadMode [FilePath]
   | Reload
   | Say Message
   | Quit
 
-data EvalMode = Trace | Silent
+data Normalization = Normal | Forced
+
+data Tracing = Trace | Silent
 
 data LoadMode = Reset | Append
 
@@ -42,7 +44,7 @@ parseCommand s = case runParser command "<interactive>" s of
     command =
       char prefix *> explicit
         <|> Just . Bind <$> try binding <* eof
-        <|> Just . Eval Silent <$> term <* eof
+        <|> Just . Eval Normal Silent <$> term <* eof
 
     explicit =
       takeWhileP Nothing (not . isSpace) >>= \case
@@ -69,10 +71,12 @@ parseCommand s = case runParser command "<interactive>" s of
           ("module", Load <$> loadMode <* sc <*> sepEndBy name sc),
           ("quit", return Quit),
           ("reload", return Reload),
-          ("trace", Eval Trace <$> term),
+          ("trace", Eval Normal Trace <$> term),
+          ("force", Eval Forced <$> tracing <*> term),
           ("show", ShowBindings <$ sc <* string "bindings" <|> return (Say ShowSyntax))
         ]
     loadMode = maybe Reset (const Append) <$> optional (sym "+")
+    tracing = maybe Silent (const Trace) <$> optional (sym "trace")
 
     spaced p = sc *> sepEndBy1 p sc
     name = (:) <$> letterChar <*> many alphaNumChar
@@ -106,7 +110,8 @@ instance Show Message where
     \   :quit                       exit Lambda\n\
     \   :reload                     reload the current module set (TODO)\n\n\
     \ -- Commands for debugging:\n\n\
-    \   :trace <expr>               evaluate <expr> with tracing on\n\n\
+    \   :trace <expr>               evaluate <expr> with tracing on\n\
+    \   :force [trace] <expr>       force complete <expr> evaluation\n\n\
     \ -- Commands for displaying information:\n\n\
     \   :show bindings              \
     \show the current bindings made at the prompt\n"

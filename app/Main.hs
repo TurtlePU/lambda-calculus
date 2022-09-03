@@ -57,7 +57,7 @@ loop = do
     Just cmd -> modify (writeCmd cmd) $> cmd
   case command of
     (Bind (Label nm te)) -> lift get >>= onBindingResolve nm . resolve' te
-    (Eval em te) -> lift get >>= onEvalResolve em . resolve' te
+    (Eval nm tr te) -> lift get >>= onEvalResolve nm tr . resolve' te
     ShowBindings -> lift get >>= replyAll . allBindings
     (Load lm ss) -> reply "TODO"
     Reload -> reply "TODO"
@@ -69,10 +69,14 @@ loop = do
 
     onBindingResolve _ (Left e) = reply e
     onBindingResolve nm (Right t) = do
-      lift . modify . writeBinding nm $ normalOrder t
+      lift . modify . writeBinding nm $ bigStep (smallStep normal) t
       loop
 
-    onEvalResolve _ (Left e) = reply e
-    onEvalResolve em (Right t) = case em of
-      Trace -> replyAll (normalOrderLog t)
-      Silent -> reply (normalOrder t)
+    onEvalResolve _ _ (Left e) = reply e
+    onEvalResolve nl em (Right t) =
+      let step = smallStep $ case nl of
+            Normal -> normal
+            Forced -> forced
+       in case em of
+            Trace -> replyAll (stepLog step t)
+            Silent -> reply (bigStep step t)
