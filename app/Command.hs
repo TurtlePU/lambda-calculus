@@ -41,8 +41,8 @@ parseCommand s = case runParser command "<interactive>" s of
   where
     command =
       char prefix *> explicit
-        <|> Just . Bind <$> try binding
-        <|> Just . Eval Silent <$> term
+        <|> Just . Bind <$> try binding <* eof
+        <|> Just . Eval Silent <$> term <* eof
 
     explicit =
       takeWhileP Nothing (not . isSpace) >>= \case
@@ -51,7 +51,10 @@ parseCommand s = case runParser command "<interactive>" s of
           finish : _ -> Just <$> finish
           _ -> return . Just . Say $ UnknownCommand w
 
-    binding = Label <$> lex name <* char '=' <*> term
+    binding = packBinding <$> spaced name <* char '=' <*> term
+      where
+        packBinding (name : args) term = Label name $ foldr Abs term args
+        packBinding [] _ = error "expected nonempty list"
     term = foldl1' App <$> spaced atom
     atom =
       char '\\' *> (flip (foldr Abs) <$> spaced name <* string "->" <*> term)
