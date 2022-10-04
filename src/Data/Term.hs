@@ -3,6 +3,12 @@ module Data.Term where
 import Control.Applicative ((<|>))
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty, last, unfoldr)
+import qualified Data.Map as Map
+import Data.Map (Map, findWithDefault, keys)
+import qualified Data.IntMap as IntMap
+import Data.IntMap (IntMap, size)
+import qualified Data.Set as Set
+import Data.Set (Set, fromList, member)
 import Data.StringTrie (StringTrie, insert, lookup)
 import Prelude hiding (last, lookup)
 
@@ -61,14 +67,28 @@ shift = shift' 0
 instance Show ResolveError where
   show (NotInScope x) = "Variable not in scope: " ++ x
 
+checkCollisionsHelper :: Map String Int -> Term -> Map String Int
+checkCollisionsHelper m (Var _ _) = m
+checkCollisionsHelper m (Abs x t) = let xs = findWithDefault 0 x m in checkCollisionsHelper (Map.insert x (xs + 1) m) t
+checkCollisionsHelper m (App f x) = checkCollisionsHelper (checkCollisionsHelper m f) x
+
+checkCollisions :: Term -> Set String
+checkCollisions t = fromList $ keys $ Map.filter (== 1) (checkCollisionsHelper Map.empty t)
+
+printTerm :: Set String -> Map String (IntMap Int) -> Int -> Term -> String
+printTerm s m d (Var i x) = x ++ if x `member` s then "" else "_" ++ show ((m Map.! x) IntMap.! (d - i))
+printTerm s m d (Abs x t) = let xs = findWithDefault (IntMap.empty) x m 
+  in "\\" ++ (x ++ if x `member` s then "" else "_" ++ show (size xs)) ++ " -> " ++ printTerm s (Map.insert x (IntMap.insert (d + 1) (size xs) xs) m) (d + 1) t
+printTerm s m d (App f x) = leftOp ++ " " ++ rightOp
+  where
+    leftOp = let showF = printTerm s m d f 
+      in case f of
+        Abs _ _ -> "(" ++ showF ++ ")"
+        _ -> showF
+    rightOp = let showX = printTerm s m d x
+      in case x of
+        Var _ _ -> showX
+        _ -> "(" ++ showX ++ ")"
+
 instance Show Term where
-  show (Var _ x) = x
-  show (Abs x t) = "\\" ++ x ++ " -> " ++ show t
-  show (App f x) = leftOp ++ " " ++ rightOp
-    where
-      leftOp = case f of
-        Abs _ _ -> "(" ++ show f ++ ")"
-        _ -> show f
-      rightOp = case x of
-        Var _ _ -> show x
-        _ -> "(" ++ show x ++ ")"
+  show t = printTerm (checkCollisions t) Map.empty 0 t
