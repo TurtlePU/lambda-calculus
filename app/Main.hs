@@ -8,6 +8,7 @@ import Data.Labeled (Labeled (Label))
 import Data.StringTrie
 import Data.Term hiding (App)
 import System.Console.Haskeline
+import System.IO (readFile)
 
 ----------------------------------- AppState -----------------------------------
 
@@ -49,6 +50,19 @@ completeFromBindings = completeWord escapeChar whitespace impl
     escapeChar = Just prefix
     whitespace = " ()\\>"
 
+include :: String -> InputT (StateT AppState IO) ()
+include s = do
+  s <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
+  for_ (lines s) (\line -> case parseCommand line of
+    Nothing -> return ()
+    Just x -> case x of
+      (Bind (Label nm te)) -> do
+        state <- lift get
+        case resolve' te state of
+          Left e -> outputStrLn $ show e
+          Right t -> lift . modify . writeBinding nm $ bigStep (smallStep normal) t
+      _ -> return ())
+
 loop :: InputT (StateT AppState IO) ()
 loop = do
   line <- getInputLine "> "
@@ -59,7 +73,9 @@ loop = do
     (Bind (Label nm te)) -> lift get >>= onBindingResolve nm . resolve' te
     (Eval nm tr te) -> lift get >>= onEvalResolve nm tr . resolve' te
     ShowBindings -> lift get >>= replyAll . allBindings
-    (Load lm ss) -> reply "TODO"
+    (Load lm ss) -> case lm of
+      Reset -> reply "TODO"
+      Append -> for_ ss include >> loop
     Reload -> reply "TODO"
     Say msg -> reply msg
     Quit -> outputStrLn "Leaving Lambda."

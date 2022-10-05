@@ -75,7 +75,7 @@ parseCommand s = case runParser command "<interactive>" s of
           ("force", Eval Forced <$> tracing <*> term),
           ("show", ShowBindings <$ sc <* string "bindings" <|> return (Say ShowSyntax))
         ]
-    loadMode = maybe Reset (const Append) <$> optional (sym "+")
+    loadMode = maybe Reset (const Append) <$> optional (space *> sym "+")
     tracing = maybe Silent (const Trace) <$> optional (space *> sym "trace")
 
     spaced p = sc *> sepEndBy1 p sc
