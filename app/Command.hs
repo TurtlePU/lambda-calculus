@@ -76,7 +76,7 @@ parseCommand s = case runParser command "<interactive>" s of
           ("show", ShowBindings <$ sc <* string "bindings" <|> return (Say ShowSyntax))
         ]
     loadMode = maybe Reset (const Append) <$> optional (sym "+")
-    tracing = maybe Silent (const Trace) <$> optional (sym "trace")
+    tracing = maybe Silent (const Trace) <$> optional (space *> sym "trace")
 
     spaced p = sc *> sepEndBy1 p sc
     name = (:) <$> letterChar <*> many alphaNumChar
