@@ -2,6 +2,8 @@ true = \x y -> x
 false = \x y -> y
 not b = b false true
 
+const a = \x -> a
+
 pair x y = \f -> f x y
 first p = p (\x y -> x)
 second p = p (\x y -> y)
@@ -9,12 +11,13 @@ second p = p (\x y -> y)
 zero = \s z -> z
 one = \s z -> s z
 
-isZ n = n (\a -> false) true
+isZ n = n (const false) true
 
+succ n = \s z -> s (n s z)
 plus n m = \s z -> n s (m s z)
 mul n m = n (plus m) zero
 
-pred n = second (n (\p -> pair (plus (first p) (second p)) (first p)) (pair zero zero))
+pred n = second (n (\p -> pair (succ (first p)) (first p)) (pair zero zero))
 minus n m = m pred n
 
 le n m = isZ (minus m n)
