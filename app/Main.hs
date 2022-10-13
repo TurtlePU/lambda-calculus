@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Main where
 
 import Command
@@ -7,6 +9,7 @@ import Data.Functor (($>))
 import Data.Labeled (Labeled (Label))
 import Data.StringTrie
 import Data.Term hiding (App)
+import Data.Traversable (for)
 import System.Console.Haskeline
 import System.IO (readFile)
 
@@ -50,16 +53,25 @@ completeFromBindings = completeWord escapeChar whitespace impl
     escapeChar = Just prefix
     whitespace = " ()\\>"
 
-include :: String -> InputT (StateT AppState IO) ()
+type FileContents = String
+
+include :: MonadState AppState m => FileContents -> m [ResolveError]
 include s = do
-  s <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
-  for_ (lines s) $ \line -> case parseBinding line of
-    Nothing -> return ()
+  result <- for (lines s) $ \line -> case parseBinding line of
+    Nothing -> return []
     Just (Bind (Label nm te)) -> do
-      state <- lift get
+      state <- get
       case resolve' te state of
-        Left e -> outputStrLn $ show e
-        Right t -> lift . modify . writeBinding nm $ bigStep (smallStep normal) t
+        Left e -> return [e]
+        Right t -> (modify . writeBinding nm $ bigStep (smallStep normal) t) $> []
+  return $ concat result
+
+type FileName = String
+
+importModule :: FileName -> InputT (StateT AppState IO) [ResolveError]
+importModule s = do
+  s <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
+  lift $ include s
 
 loop :: InputT (StateT AppState IO) ()
 loop = do
@@ -73,7 +85,7 @@ loop = do
     ShowBindings -> lift get >>= replyAll . allBindings
     (Load lm ss) -> case lm of
       Reset -> reply "TODO"
-      Append -> for_ ss include >> loop
+      Append -> for_ ss importModule >> loop
     Reload -> reply "TODO"
     Say msg -> reply msg
     Quit -> outputStrLn "Leaving Lambda."
