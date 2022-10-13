@@ -84,6 +84,11 @@ parseCommand s = case runParser command "<interactive>" s of
     sym = L.symbol sc
     sc = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
 
+parseBinding :: String -> Maybe Command
+parseBinding s = case parseCommand s of
+  Just b@(Bind _) -> Just b
+  _ -> Nothing
+
 ----------------------------------- Messages -----------------------------------
 
 data Message

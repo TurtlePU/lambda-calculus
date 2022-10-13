@@ -53,15 +53,13 @@ completeFromBindings = completeWord escapeChar whitespace impl
 include :: String -> InputT (StateT AppState IO) ()
 include s = do
   s <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
-  for_ (lines s) (\line -> case parseCommand line of
+  for_ (lines s) $ \line -> case parseBinding line of
     Nothing -> return ()
-    Just x -> case x of
-      (Bind (Label nm te)) -> do
-        state <- lift get
-        case resolve' te state of
-          Left e -> outputStrLn $ show e
-          Right t -> lift . modify . writeBinding nm $ bigStep (smallStep normal) t
-      _ -> return ())
+    Just (Bind (Label nm te)) -> do
+      state <- lift get
+      case resolve' te state of
+        Left e -> outputStrLn $ show e
+        Right t -> lift . modify . writeBinding nm $ bigStep (smallStep normal) t
 
 loop :: InputT (StateT AppState IO) ()
 loop = do
