@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Command where
 
 import Data.Char (isSpace)
@@ -27,72 +25,11 @@ data Tracing = Trace | Silent
 
 data LoadMode = Reset | Append
 
------------------------------------- Parser ------------------------------------
+----------------------------------- Messages -----------------------------------
 
 type Parser = Parsec Void String
 
 type ParsecError = ParseErrorBundle String Void
-
-prefix :: Char
-prefix = ':'
-
-binding = packBinding <$> spaced name <* char '=' <*> term
-  where
-    packBinding (name : args) term = Label name $ foldr Abs term args
-    packBinding [] _ = error "expected nonempty list"
-
-term = foldl1' App <$> spaced atom
-  where
-    atom =
-      char '\\' *> (flip (foldr Abs) <$> spaced name <* string "->" <*> term)
-        <|> between (char '(') (char ')') term
-        <|> Var 0 <$> name
-
-spaced p = sc *> sepEndBy1 p sc
-
-name = (:) <$> letterChar <*> many alphaNumChar
-
-sc = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
-
-parseCommand :: String -> Maybe Command
-parseCommand s = case runParser command "<interactive>" s of
-  Left err -> Just . Say $ ParseError err
-  Right ok -> ok
-  where
-    command =
-      char prefix *> explicit
-        <|> Just . Bind <$> try binding <* eof
-        <|> Just . Eval Normal Silent <$> term <* eof
-
-    explicit =
-      takeWhileP Nothing (not . isSpace) >>= \case
-        "" -> pure Nothing
-        w -> case elems (submap w finishes) of
-          finish : _ -> Just <$> finish
-          _ -> return . Just . Say $ UnknownCommand w
-
-    finishes :: StringTrie (Parser Command)
-    finishes =
-      fromList
-        [ ("help", return $ Say Help),
-          ("?", return $ Say Help),
-          ("module", Load <$> loadMode <* sc <*> sepEndBy name sc),
-          ("quit", return Quit),
-          ("reload", return Reload),
-          ("trace", Eval Normal Trace <$> term),
-          ("force", Eval Forced <$> tracing <*> term),
-          ("show", ShowBindings <$ sc <* string "bindings" <|> return (Say ShowSyntax))
-        ]
-    loadMode = maybe Reset (const Append) <$> optional (space *> sym "+")
-    tracing = maybe Silent (const Trace) <$> optional (space *> sym "trace")
-
-    lex = L.lexeme sc
-    sym = L.symbol sc
-
-parseBinding :: String -> Either ParsecError (Labeled Term)
-parseBinding s = runParser binding "<import>" s
-
------------------------------------ Messages -----------------------------------
 
 data Message
   = NoLastCommand

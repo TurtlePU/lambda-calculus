@@ -10,6 +10,7 @@ import Data.Labeled (Labeled (Label))
 import Data.StringTrie
 import Data.Term hiding (App)
 import Data.Traversable (for)
+import Parser
 import System.Console.Haskeline
 import System.IO (readFile)
 
