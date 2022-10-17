@@ -36,6 +36,24 @@ type ParsecError = ParseErrorBundle String Void
 prefix :: Char
 prefix = ':'
 
+binding = packBinding <$> spaced name <* char '=' <*> term
+  where
+    packBinding (name : args) term = Label name $ foldr Abs term args
+    packBinding [] _ = error "expected nonempty list"
+
+term = foldl1' App <$> spaced atom
+  where
+    atom =
+      char '\\' *> (flip (foldr Abs) <$> spaced name <* string "->" <*> term)
+        <|> between (char '(') (char ')') term
+        <|> Var 0 <$> name
+
+spaced p = sc *> sepEndBy1 p sc
+
+name = (:) <$> letterChar <*> many alphaNumChar
+
+sc = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
+
 parseCommand :: String -> Maybe Command
 parseCommand s = case runParser command "<interactive>" s of
   Left err -> Just . Say $ ParseError err
@@ -53,16 +71,6 @@ parseCommand s = case runParser command "<interactive>" s of
           finish : _ -> Just <$> finish
           _ -> return . Just . Say $ UnknownCommand w
 
-    binding = packBinding <$> spaced name <* char '=' <*> term
-      where
-        packBinding (name : args) term = Label name $ foldr Abs term args
-        packBinding [] _ = error "expected nonempty list"
-    term = foldl1' App <$> spaced atom
-    atom =
-      char '\\' *> (flip (foldr Abs) <$> spaced name <* string "->" <*> term)
-        <|> between (char '(') (char ')') term
-        <|> Var 0 <$> name
-
     finishes :: StringTrie (Parser Command)
     finishes =
       fromList
@@ -78,16 +86,11 @@ parseCommand s = case runParser command "<interactive>" s of
     loadMode = maybe Reset (const Append) <$> optional (space *> sym "+")
     tracing = maybe Silent (const Trace) <$> optional (space *> sym "trace")
 
-    spaced p = sc *> sepEndBy1 p sc
-    name = (:) <$> letterChar <*> many alphaNumChar
     lex = L.lexeme sc
     sym = L.symbol sc
-    sc = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
 
-parseBinding :: String -> Maybe Command
-parseBinding s = case parseCommand s of
-  Just b@(Bind _) -> Just b
-  _ -> Nothing
+parseBinding :: String -> Either ParsecError (Labeled Term)
+parseBinding s = runParser binding "<import>" s
 
 ----------------------------------- Messages -----------------------------------
 
