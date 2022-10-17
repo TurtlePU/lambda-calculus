@@ -75,5 +75,7 @@ parseCommand s = case runParser command "<interactive>" s of
     
     sym = L.symbol sc
 
-parseBinding :: String -> Either ParsecError (Labeled Term)
-parseBinding s = runParser binding "<import>" s
+type FileName = String
+
+parseBinding :: FileName -> String -> Either ParsecError (Labeled Term)
+parseBinding file s = runParser binding file s

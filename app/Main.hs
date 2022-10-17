@@ -54,13 +54,15 @@ completeFromBindings = completeWord escapeChar whitespace impl
     escapeChar = Just prefix
     whitespace = " ()\\>"
 
+type FileName = String
 type FileContents = String
+
 data BindingError = Resolve ResolveError | Parse ParsecError
 
-include :: MonadState AppState m => FileContents -> m [BindingError]
-include s = do
-  result <- for (lines s) $ \line -> case parseBinding line of
-    Left errors -> return $ [Parse errors]
+include :: MonadState AppState m => FileName -> FileContents -> m [BindingError]
+include file s = do
+  result <- for (lines s) $ \line -> case parseBinding file line of
+    Left errors -> return [Parse errors]
     Right (Label nm te) -> do
       state <- get
       case resolve' te state of
@@ -68,12 +70,10 @@ include s = do
         Right t -> (modify . writeBinding nm $ bigStep (smallStep normal) t) $> []
   return $ concat result
 
-type FileName = String
-
 importModule :: FileName -> InputT (StateT AppState IO) [BindingError]
 importModule s = do
-  s <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
-  lift $ include s
+  content <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
+  lift $ include s content
 
 loop :: InputT (StateT AppState IO) ()
 loop = do
