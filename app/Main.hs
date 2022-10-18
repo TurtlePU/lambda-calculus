@@ -57,7 +57,7 @@ completeFromBindings = completeWord escapeChar whitespace impl
 type FileName = String
 type FileContents = String
 
-data BindingError = Resolve ResolveError | Parse ParsecError
+data BindingError = Resolve ResolveError | Parse ParsecError deriving Show
 
 include :: MonadState AppState m => FileName -> FileContents -> m [BindingError]
 include file s = do
@@ -87,7 +87,10 @@ loop = do
     ShowBindings -> lift get >>= replyAll . allBindings
     (Load lm ss) -> case lm of
       Reset -> reply "TODO"
-      Append -> for_ ss importModule >> loop
+      Append -> do
+        parsingLogs <- for ss importModule
+        _ <- for (zip parsingLogs ss) (\(errors, moduleName) -> outputStrLn $ "Errors during import module " ++ moduleName ++ ":\n" ++ (concat $ map (\err -> show err ++ "\n") errors))
+        loop
     Reload -> reply "TODO"
     Say msg -> reply msg
     Quit -> outputStrLn "Leaving Lambda."
