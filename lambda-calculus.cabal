@@ -31,7 +31,7 @@ library
 
 executable lambda-calculus
     main-is:          Main.hs
-    other-modules:    Command
+    other-modules:    Command, Parser
     build-depends:
         base >=4.14.3.0
       , mtl >=2.3
