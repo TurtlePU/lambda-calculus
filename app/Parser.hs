@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Parser (parseBinding, parseCommand, prefix) where
+module Parser (parseModule, parseCommand, prefix) where
 
 import Command
 import Data.Char (isSpace)
@@ -18,7 +18,7 @@ prefix :: Char
 prefix = ':'
 
 binding :: (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m (Labeled Term)
-binding = packBinding <$> spaced name <* char '=' <*> term
+binding = (packBinding <$> spaced name <* char '=' <*> term)
   where
     packBinding (name : args) term = Label name $ foldr Abs term args
     packBinding [] _ = error "expected nonempty list"
@@ -76,6 +76,16 @@ parseCommand s = case runParser command "<interactive>" s of
     sym = L.symbol sc
 
 type FileName = String
+type FileContents = String
 
-parseBinding :: FileName -> String -> Either ParsecError (Labeled Term)
-parseBinding file s = runParser binding file s
+shrink :: [Either a b] -> ([a], [b])
+shrink [] = ([], [])
+shrink (Left a: xs) = let (as, bs) = shrink xs in ((a: as), bs)
+shrink (Right b: xs) = let (as, bs) = shrink xs in (as, (b: bs))
+
+parseModuleLine :: (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m [Labeled Term]
+parseModuleLine = ((\_ -> []) <$> (space <* eof)) <|> ((\a -> [a]) <$> binding)
+
+parseModule :: FileName -> FileContents -> ([ParsecError], [Labeled Term])
+parseModule file s = let (a, b) = shrink $ map (\s -> runParser parseModuleLine file s) (lines s)
+    in (a, concat b)

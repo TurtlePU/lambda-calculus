@@ -59,21 +59,27 @@ type FileContents = String
 
 data BindingError = Resolve ResolveError | Parse ParsecError deriving Show
 
-include :: MonadState AppState m => FileName -> FileContents -> m [BindingError]
-include file s = do
-  result <- for (lines s) $ \line -> case parseBinding file line of
-    Left errors -> return [Parse errors]
-    Right (Label nm te) -> do
+updateBindings :: MonadState AppState m => [Labeled Term] -> m [BindingError]
+updateBindings [] = return []
+updateBindings ((Label nm te): xs) = do
       state <- get
       case resolve' te state of
-        Left e -> return [Resolve e]
-        Right t -> (modify . writeBinding nm $ bigStep (smallStep normal) t) $> []
-  return $ concat result
+        Left e -> do
+          res <- updateBindings xs
+          return (Resolve e: res)
+        Right t -> (modify . writeBinding nm $ bigStep (smallStep normal) t) *> updateBindings xs
+
+include :: MonadState AppState m => FileName -> FileContents -> m [BindingError]
+include file s = do
+  let (errors, bindings) = parseModule file s
+  bindingErrors <- updateBindings bindings
+  let parsingErrors = map Parse errors
+  return $ bindingErrors ++ parsingErrors
 
 importModule :: FileName -> InputT (StateT AppState IO) [BindingError]
-importModule s = do
-  content <- lift $ lift $ readFile ("./lib/" ++ s ++ ".lc")
-  lift $ include s content
+importModule moduleName = do
+  content <- lift $ lift $ readFile ("./lib/" ++ moduleName ++ ".lc")
+  lift $ include moduleName content
 
 loop :: InputT (StateT AppState IO) ()
 loop = do
@@ -89,7 +95,7 @@ loop = do
       Reset -> reply "TODO"
       Append -> do
         parsingLogs <- for ss importModule
-        _ <- for (zip parsingLogs ss) (\(errors, moduleName) -> outputStrLn $ "Errors during import module " ++ moduleName ++ ":\n" ++ (concat $ map (\err -> show err ++ "\n") errors))
+        _ <- for (zip parsingLogs ss) printErrors
         loop
     Reload -> reply "TODO"
     Say msg -> reply msg
@@ -97,6 +103,10 @@ loop = do
   where
     reply x = outputStrLn (show x) >> loop
     replyAll xs = for_ xs (outputStrLn . show) >> loop
+
+    printErrors (errors, moduleName) = case concat $ map (\err -> show err ++ "\n") errors of
+        [] -> return ()
+        s  -> outputStrLn $ "Errors during import module " ++ moduleName ++ ":\n" ++ s
 
     onBindingResolve _ (Left e) = reply e
     onBindingResolve nm (Right t) = do
