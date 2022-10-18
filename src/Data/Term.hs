@@ -4,11 +4,11 @@ import Control.Applicative ((<|>))
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty, last, unfoldr)
 import qualified Data.HashMap.Strict as Map
-import Data.HashMap.Strict (HashMap, findWithDefault, keysSet)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.IntMap as IntMap
-import Data.IntMap (IntMap, size)
+import Data.IntMap (IntMap)
 import qualified Data.HashSet as Set
-import Data.HashSet (HashSet, fromList, member)
+import Data.HashSet (HashSet)
 import Data.StringTrie (StringTrie, insert, lookup)
 import Prelude hiding (last, lookup)
 
@@ -69,16 +69,16 @@ instance Show ResolveError where
 
 checkCollisionsHelper :: HashMap String Int -> Term -> HashMap String Int
 checkCollisionsHelper m (Var _ _) = m
-checkCollisionsHelper m (Abs x t) = let xs = findWithDefault 0 x m in checkCollisionsHelper (Map.insert x (xs + 1) m) t
+checkCollisionsHelper m (Abs x t) = let xs = Map.findWithDefault 0 x m in checkCollisionsHelper (Map.insert x (xs + 1) m) t
 checkCollisionsHelper m (App f x) = checkCollisionsHelper (checkCollisionsHelper m f) x
 
 checkCollisions :: Term -> HashSet String
-checkCollisions t = keysSet $ Map.filter (== 1) (checkCollisionsHelper Map.empty t)
+checkCollisions t = Map.keysSet $ Map.filter (== 1) (checkCollisionsHelper Map.empty t)
 
 printTerm :: HashSet String -> HashMap String (IntMap Int) -> Int -> Term -> String
-printTerm s m d (Var i x) = x ++ if x `member` s then "" else "_" ++ show ((m Map.! x) IntMap.! (d - i))
-printTerm s m d (Abs x t) = let xs = findWithDefault (IntMap.empty) x m 
-  in "\\" ++ (x ++ if x `member` s then "" else "_" ++ show (size xs)) ++ " -> " ++ printTerm s (Map.insert x (IntMap.insert (d + 1) (size xs) xs) m) (d + 1) t
+printTerm s m d (Var i x) = x ++ if x `Set.member` s then "" else "_" ++ show ((m Map.! x) IntMap.! (d - i))
+printTerm s m d (Abs x t) = let xs = Map.findWithDefault (IntMap.empty) x m 
+  in "\\" ++ (x ++ if x `Set.member` s then "" else "_" ++ show (IntMap.size xs)) ++ " -> " ++ printTerm s (Map.insert x (IntMap.insert (d + 1) (IntMap.size xs) xs) m) (d + 1) t
 printTerm s m d (App f x) = leftOp ++ " " ++ rightOp
   where
     leftOp = let showF = printTerm s m d f 
