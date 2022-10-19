@@ -3,11 +3,9 @@ module Command where
 import Data.Char (isSpace)
 import Data.Labeled (Labeled (Label))
 import Data.List (foldl1')
-import Data.StringTrie
 import Data.Term (Term (..))
 import Data.Void (Void)
-import Text.Megaparsec hiding (Label)
-import Text.Megaparsec.Char
+import Text.Megaparsec (ParseErrorBundle, errorBundlePretty)
 import qualified Text.Megaparsec.Char.Lexer as L
 
 data Command
@@ -26,8 +24,6 @@ data Tracing = Trace | Silent
 data LoadMode = Reset | Append
 
 ----------------------------------- Messages -----------------------------------
-
-type Parser = Parsec Void String
 
 type ParsecError = ParseErrorBundle String Void
 
