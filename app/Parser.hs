@@ -1,12 +1,14 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Parser (parseModule, parseCommand, prefix) where
 
 import Command
 import Data.Char (isSpace)
+import Data.Either (partitionEithers)
 import Data.Labeled (Labeled (Label))
 import Data.List (foldl1')
+import Data.Maybe (catMaybes)
 import Data.StringTrie
 import Data.Term (Term (..))
 import Data.Void (Void)
@@ -17,8 +19,9 @@ import qualified Text.Megaparsec.Char.Lexer as L
 prefix :: Char
 prefix = ':'
 
-binding :: (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m (Labeled Term)
-binding = (packBinding <$> spaced name <* char '=' <*> term)
+binding ::
+  (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m (Labeled Term)
+binding = packBinding <$> spaced name <* char '=' <*> term
   where
     packBinding (name : args) term = Label name $ foldr Abs term args
     packBinding [] _ = error "expected nonempty list"
@@ -57,35 +60,48 @@ parseCommand s = case runParser command "<interactive>" s of
           finish : _ -> Just <$> finish
           _ -> return . Just . Say $ UnknownCommand w
 
-    finishes :: StringTrie (Parser Command)
+    finishes ::
+      (Token s ~ Char, Tokens s ~ String, MonadParsec e s m) =>
+      StringTrie (m Command)
     finishes =
       fromList
         [ ("help", return $ Say Help),
           ("?", return $ Say Help),
-          ("module", Load <$> loadMode <* sc <*> sepEndBy name sc),
+          ("module", Load <$> (sc *> loadMode) <*> sepEndBy name sc),
           ("quit", return Quit),
           ("reload", return Reload),
           ("trace", Eval Normal Trace <$> term),
-          ("force", Eval Forced <$> tracing <*> term),
-          ("show", ShowBindings <$ sc <* string "bindings" <|> return (Say ShowSyntax))
+          ("force", Eval Forced <$> (sc *> tracing) <*> term),
+          ( "show",
+            ShowBindings <$ sc <* string "bindings" <|> return (Say ShowSyntax)
+          )
         ]
 
-    loadMode = maybe Reset (const Append) <$> optional (space *> sym "+")
-    tracing = maybe Silent (const Trace) <$> optional (space *> sym "trace")
-    
+    loadMode ::
+      (Token s ~ Char, Tokens s ~ String, MonadParsec e s m) =>
+      m LoadMode
+    loadMode = maybe Reset (const Append) <$> optional (sym "+")
+
+    tracing ::
+      (Token s ~ Char, Tokens s ~ String, MonadParsec e s m) =>
+      m Tracing
+    tracing = maybe Silent (const Trace) <$> optional (sym "trace")
+
+    sym ::
+      (Token s ~ Char, Tokens s ~ String, MonadParsec e s m) =>
+      String ->
+      m String
     sym = L.symbol sc
 
 type FileName = String
+
 type FileContents = String
 
-shrink :: [Either a b] -> ([a], [b])
-shrink [] = ([], [])
-shrink (Left a: xs) = let (as, bs) = shrink xs in ((a: as), bs)
-shrink (Right b: xs) = let (as, bs) = shrink xs in (as, (b: bs))
-
-parseModuleLine :: (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m [Labeled Term]
-parseModuleLine = ((\_ -> []) <$> (space <* eof)) <|> ((\a -> [a]) <$> binding)
-
 parseModule :: FileName -> FileContents -> ([ParsecError], [Labeled Term])
-parseModule file s = let (a, b) = shrink $ map (\s -> runParser parseModuleLine file s) (lines s)
-    in (a, concat b)
+parseModule file =
+  fmap catMaybes
+    . partitionEithers
+    . map (runParser parseModuleLine file)
+    . lines
+  where
+    parseModuleLine = (Nothing <$ space <* eof) <|> (Just <$> binding)

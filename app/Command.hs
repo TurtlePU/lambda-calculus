@@ -27,8 +27,6 @@ data LoadMode = Reset | Append
 
 ----------------------------------- Messages -----------------------------------
 
-type Parser = Parsec Void String
-
 type ParsecError = ParseErrorBundle String Void
 
 data Message
