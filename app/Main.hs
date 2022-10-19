@@ -3,7 +3,9 @@
 module Main where
 
 import Command
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.State.Strict
+import Control.Monad.Trans (MonadTrans (lift))
 import Data.Foldable (for_)
 import Data.Functor (($>))
 import Data.Labeled (Labeled (Label))
@@ -11,7 +13,7 @@ import Data.Maybe (catMaybes)
 import Data.StringTrie
 import Data.Term hiding (App)
 import Data.Traversable (for)
-import Parser
+import Parser (parseCommand, parseModule, prefix)
 import System.Console.Haskeline
 import System.IO (readFile)
 import Text.Megaparsec (errorBundlePretty)

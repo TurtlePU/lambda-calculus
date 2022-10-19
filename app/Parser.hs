@@ -9,7 +9,7 @@ import Data.Either (partitionEithers)
 import Data.Labeled (Labeled (Label))
 import Data.List (foldl1')
 import Data.Maybe (catMaybes)
-import Data.StringTrie
+import Data.StringTrie (StringTrie, elems, fromList, submap)
 import Data.Term (Term (..))
 import Data.Void (Void)
 import Text.Megaparsec hiding (Label)
