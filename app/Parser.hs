@@ -38,7 +38,7 @@ spaced :: (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m a -> m [a]
 spaced p = sc *> sepEndBy1 p sc
 
 name :: (Token s ~ Char, MonadParsec e s m) => m String
-name = (:) <$> letterChar <*> many alphaNumChar
+name = (:) <$> letterChar <*> many (alphaNumChar <|> char '_')
 
 sc :: (Token s ~ Char, Tokens s ~ [Char], MonadParsec e s m) => m ()
 sc = L.space space1 (L.skipLineComment "--") (L.skipBlockComment "{-" "-}")
