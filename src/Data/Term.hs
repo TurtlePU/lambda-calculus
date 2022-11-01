@@ -3,10 +3,6 @@ module Data.Term where
 import Control.Applicative ((<|>))
 import Data.Function (fix)
 import Data.List.NonEmpty (NonEmpty, last, unfoldr)
-import qualified Data.HashMap.Strict as Map
-import Data.HashMap.Strict (HashMap)
-import qualified Data.IntMap as IntMap
-import Data.IntMap (IntMap)
 import qualified Data.HashSet as Set
 import Data.HashSet (HashSet)
 import Data.StringTrie (StringTrie, insert, lookup)
@@ -67,28 +63,33 @@ shift = shift' 0
 instance Show ResolveError where
   show (NotInScope x) = "Variable not in scope: " ++ x
 
-checkCollisionsHelper :: HashMap String Int -> Term -> HashMap String Int
-checkCollisionsHelper m (Var _ _) = m
-checkCollisionsHelper m (Abs x t) = let xs = Map.findWithDefault 0 x m in checkCollisionsHelper (Map.insert x (xs + 1) m) t
-checkCollisionsHelper m (App f x) = checkCollisionsHelper (checkCollisionsHelper m f) x
+checkCollision :: String -> Term -> Bool
+checkCollision s (Var _ _) = False
+checkCollision s (Abs x t) = (s == x) || (checkCollision s t)
+checkCollision s (App f x) = (checkCollision s f) || (checkCollision s x)
 
-checkCollisions :: Term -> HashSet String
-checkCollisions t = Map.keysSet $ Map.filter (== 1) (checkCollisionsHelper Map.empty t)
-
-printTerm :: HashSet String -> HashMap String (IntMap Int) -> Int -> Term -> String
-printTerm s m d (Var i x) = x ++ if x `Set.member` s then "" else "_" ++ show ((m Map.! x) IntMap.! (d - i))
-printTerm s m d (Abs x t) = let xs = Map.findWithDefault (IntMap.empty) x m 
-  in "\\" ++ (x ++ if x `Set.member` s then "" else "_" ++ show (IntMap.size xs)) ++ " -> " ++ printTerm s (Map.insert x (IntMap.insert (d + 1) (IntMap.size xs) xs) m) (d + 1) t
-printTerm s m d (App f x) = leftOp ++ " " ++ rightOp
+printTerm :: Int -> HashSet String -> Term -> String
+printTerm d s (Var i x) = if x `Set.member` s
+  then x ++ "_" ++ (show $ d - i - 1)
+  else x
+printTerm d s (Abs x t) = "\\" ++ varName ++ " -> " ++ termBody
   where
-    leftOp = let showF = printTerm s m d f 
+    (varName, s1) = if x `Set.member` s
+      then (x ++ "_" ++ show d, s)
+      else if checkCollision x t
+        then (x ++ "_" ++ show d, Set.insert x s)
+        else (x, s)
+    termBody = printTerm (d + 1) s1 t
+printTerm d s (App f x) = leftOp ++ " " ++ rightOp
+  where
+    leftOp = let showF = printTerm d s f 
       in case f of
         Abs _ _ -> "(" ++ showF ++ ")"
         _ -> showF
-    rightOp = let showX = printTerm s m d x
+    rightOp = let showX = printTerm d s x
       in case x of
         Var _ _ -> showX
         _ -> "(" ++ showX ++ ")"
 
 instance Show Term where
-  show t = printTerm (checkCollisions t) Map.empty 0 t
+  show t = printTerm 0 Set.empty t
