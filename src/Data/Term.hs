@@ -3,10 +3,11 @@ module Data.Term where
 import Control.Applicative ((<|>))
 import Data.Function (fix)
 import Data.HashSet (HashSet)
-import qualified Data.HashSet as Set
-import Data.List.NonEmpty (NonEmpty, last, unfoldr)
-import Data.StringTrie (StringTrie, insert, lookup)
-import Prelude hiding (last, lookup)
+import qualified Data.HashSet as HashSet
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
+import Data.StringTrie (StringTrie)
+import qualified Data.StringTrie as Trie
 
 data Term
   = Var Int String
@@ -24,22 +25,22 @@ isAbs _ = False
 newtype ResolveError = NotInScope String
 
 resolve :: StringTrie Term -> Term -> Either ResolveError Term
-resolve st (Var _ x) = case lookup x st of
+resolve st (Var _ x) = case Trie.lookup x st of
   Nothing -> Left (NotInScope x)
   Just tm -> Right tm
 resolve st (App f x) = App <$> resolve st f <*> resolve st x
 resolve st (Abs x t) =
-  Abs x <$> resolve (insert x (Var 0 x) $ fmap (shift 1) st) t
+  Abs x <$> resolve (Trie.insert x (Var 0 x) $ fmap (shift 1) st) t
 
 type SmallStep = Term -> Maybe Term
 
 type NanoStep = SmallStep -> SmallStep
 
 bigStep :: SmallStep -> Term -> Term
-bigStep step = last . stepLog step
+bigStep step = NonEmpty.last . stepLog step
 
 stepLog :: SmallStep -> Term -> NonEmpty Term
-stepLog step = unfoldr $ (,) <*> step
+stepLog step = NonEmpty.unfoldr $ (,) <*> step
 
 smallStep :: NanoStep -> SmallStep
 smallStep = fix
@@ -78,7 +79,7 @@ checkCollision s (App f x) = checkCollision s f || checkCollision s x
 
 formatVar :: HashSet String -> Int -> String -> String
 formatVar s i x
-  | x `Set.member` s = x ++ "_" ++ show i
+  | x `HashSet.member` s = x ++ "_" ++ show i
   | otherwise = x
 
 inBracesIf :: String -> Bool -> String
@@ -90,8 +91,8 @@ printTerm :: Int -> HashSet String -> Term -> String
 printTerm d s (Var i x) = formatVar s (d - i - 1) x
 printTerm d s (Abs x t) = "\\" ++ varName ++ " -> " ++ termBody
   where
-    mustInsert = not (x `Set.member` s) && checkCollision x t
-    s' = if mustInsert then Set.insert x s else s
+    mustInsert = not (x `HashSet.member` s) && checkCollision x t
+    s' = if mustInsert then HashSet.insert x s else s
     varName = formatVar s' d x
     termBody = printTerm (d + 1) s' t
 printTerm d s (App f x) = leftOp ++ " " ++ rightOp
@@ -100,4 +101,4 @@ printTerm d s (App f x) = leftOp ++ " " ++ rightOp
     rightOp = printTerm d s x `inBracesIf` not (isVar x)
 
 instance Show Term where
-  show = printTerm 0 Set.empty
+  show = printTerm 0 HashSet.empty
