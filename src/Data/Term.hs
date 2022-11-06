@@ -2,9 +2,9 @@ module Data.Term where
 
 import Control.Applicative ((<|>))
 import Data.Function (fix)
-import Data.List.NonEmpty (NonEmpty, last, unfoldr)
-import qualified Data.HashSet as Set
 import Data.HashSet (HashSet)
+import qualified Data.HashSet as Set
+import Data.List.NonEmpty (NonEmpty, last, unfoldr)
 import Data.StringTrie (StringTrie, insert, lookup)
 import Prelude hiding (last, lookup)
 
@@ -12,6 +12,14 @@ data Term
   = Var Int String
   | App Term Term
   | Abs String Term
+
+isVar :: Term -> Bool
+isVar (Var _ _) = True
+isVar _ = False
+
+isAbs :: Term -> Bool
+isAbs (Abs _ _) = True
+isAbs _ = False
 
 newtype ResolveError = NotInScope String
 
@@ -65,31 +73,31 @@ instance Show ResolveError where
 
 checkCollision :: String -> Term -> Bool
 checkCollision s (Var _ _) = False
-checkCollision s (Abs x t) = (s == x) || (checkCollision s t)
-checkCollision s (App f x) = (checkCollision s f) || (checkCollision s x)
+checkCollision s (Abs x t) = s == x || checkCollision s t
+checkCollision s (App f x) = checkCollision s f || checkCollision s x
+
+formatVar :: HashSet String -> Int -> String -> String
+formatVar s i x
+  | x `Set.member` s = x ++ "_" ++ show i
+  | otherwise = x
+
+inBracesIf :: String -> Bool -> String
+inBracesIf s p
+  | p = "(" ++ s ++ ")"
+  | otherwise = s
 
 printTerm :: Int -> HashSet String -> Term -> String
-printTerm d s (Var i x) = if x `Set.member` s
-  then x ++ "_" ++ (show $ d - i - 1)
-  else x
+printTerm d s (Var i x) = formatVar s (d - i - 1) x
 printTerm d s (Abs x t) = "\\" ++ varName ++ " -> " ++ termBody
   where
-    (varName, s1) = if x `Set.member` s
-      then (x ++ "_" ++ show d, s)
-      else if checkCollision x t
-        then (x ++ "_" ++ show d, Set.insert x s)
-        else (x, s)
-    termBody = printTerm (d + 1) s1 t
+    mustInsert = not (x `Set.member` s) && checkCollision x t
+    s' = if mustInsert then Set.insert x s else s
+    varName = formatVar s' d x
+    termBody = printTerm (d + 1) s' t
 printTerm d s (App f x) = leftOp ++ " " ++ rightOp
   where
-    leftOp = let showF = printTerm d s f 
-      in case f of
-        Abs _ _ -> "(" ++ showF ++ ")"
-        _ -> showF
-    rightOp = let showX = printTerm d s x
-      in case x of
-        Var _ _ -> showX
-        _ -> "(" ++ showX ++ ")"
+    leftOp = printTerm d s f `inBracesIf` isAbs f
+    rightOp = printTerm d s x `inBracesIf` not (isVar x)
 
 instance Show Term where
-  show t = printTerm 0 Set.empty t
+  show = printTerm 0 Set.empty
