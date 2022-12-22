@@ -6,6 +6,7 @@ import Data.ByteString (ByteString, unpack)
 import Data.String (IsString (fromString))
 import Data.Trie (Trie)
 import qualified Data.Trie as T
+import qualified Data.Trie.Internal as TI
 
 type StringTrie a = Trie a
 
@@ -35,3 +36,9 @@ insert = T.insert . fromString
 
 toString :: ByteString -> String
 toString = decode . unpack
+
+mergeBy :: (a -> a -> Maybe a) -> StringTrie a -> StringTrie a -> StringTrie a
+mergeBy = TI.mergeBy
+
+merge :: StringTrie a -> StringTrie a -> StringTrie a
+merge = mergeBy (\a _ -> Just a)
