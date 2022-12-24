@@ -20,32 +20,50 @@ import Text.Megaparsec (errorBundlePretty)
 
 ----------------------------------- AppState -----------------------------------
 
-data AppState = App {bindings :: StringTrie Term, lastCommand :: Command}
+data AppState = App {
+  bindings    :: StringTrie Term, 
+  imports     :: StringTrie Term, 
+  lastCommand :: Command
+}
 
 matchingKeys :: String -> AppState -> [String]
 matchingKeys s = keys . submap s . bindings
 
 setBinding :: String -> Term -> AppState -> AppState
-setBinding n t (App bs lc) = App (insert n t bs) lc
+setBinding n t (App bs im lc) = App (insert n t bs) im lc
+
+setImport :: String -> Term -> AppState -> AppState
+setImport n t (App bs im lc) = App bs (insert n t im) lc
 
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
 
 allBindings :: AppState -> [Labeled Term]
-allBindings = map (uncurry Label) . toList . bindings
+allBindings = map (uncurry Label) . toList . 
+  (\a -> merge (bindings a) (imports a))
 
 resolve' :: Term -> AppState -> Either ResolveError Term
-resolve' t = flip resolve t . bindings
+resolve' t = flip resolve t . (\a -> merge (bindings a) (imports a))
 
 writeNormalized :: MonadState AppState m => String -> Term -> m ()
 writeNormalized s = modify . setBinding s . bigStep (smallStep normal)
+
+importNormalized :: MonadState AppState m => String -> Term -> m ()
+importNormalized s = modify . setImport s . bigStep (smallStep normal)
+
+clearImports :: MonadState AppState m => m ()
+clearImports = modify (\(App bs _ lc) -> App bs empty lc)
 
 ------------------------------------- REPL -------------------------------------
 
 main :: IO ()
 main = evalStateT (runInputT settings loop) app
   where
-    app = App {bindings = empty, lastCommand = Say NoLastCommand}
+    app = App {
+      bindings    = empty, 
+      imports     = empty, 
+      lastCommand = Say NoLastCommand
+    }
     settings =
       Settings
         { complete = completeFromBindings,
@@ -72,7 +90,10 @@ loop = do
     (Eval nm tr te) -> lift get >>= onEvalResolve nm tr . resolve' te
     ShowBindings -> lift get >>= replyAll . allBindings
     (Load lm ss) -> case lm of
-      Reset -> reply "TODO"
+      Reset -> 
+        (lift clearImports) >> 
+        for ss (lift . importModule) >>= 
+        replyAll . concat
       Append -> for ss (lift . importModule) >>= replyAll . concat
     Reload -> reply "TODO"
     Say msg -> reply msg
@@ -109,7 +130,7 @@ importModule moduleName = do
     state <- get
     case resolve' te state of
       Left err -> pure (Just err)
-      Right term -> writeNormalized nm term $> Nothing
+      Right term -> importNormalized nm term $> Nothing
   return $ map Resolve resolveErrors ++ map Parse parseErrors
   where
     fileName = "./lib/" ++ moduleName ++ ".lc"
