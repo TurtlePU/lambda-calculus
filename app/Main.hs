@@ -21,8 +21,9 @@ import Text.Megaparsec (errorBundlePretty)
 ----------------------------------- AppState -----------------------------------
 
 data AppState = App {
-  bindings    :: StringTrie Term, 
-  imports     :: StringTrie Term, 
+  bindings    :: StringTrie Term,
+  imports     :: StringTrie Term,
+  modules     :: [String],
   lastCommand :: Command
 }
 
@@ -30,10 +31,13 @@ matchingKeys :: String -> AppState -> [String]
 matchingKeys s = keys . submap s . bindings
 
 setBinding :: String -> Term -> AppState -> AppState
-setBinding n t (App bs im lc) = App (insert n t bs) im lc
+setBinding n t (App bs im md lc) = App (insert n t bs) im md lc
 
 setImport :: String -> Term -> AppState -> AppState
-setImport n t (App bs im lc) = App bs (insert n t im) lc
+setImport n t (App bs im md lc) = App bs (insert n t im) md lc
+
+addModule :: String -> AppState -> AppState
+addModule n (App bs im md lc) = App bs im (n: md) lc
 
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
@@ -52,7 +56,7 @@ importNormalized :: MonadState AppState m => String -> Term -> m ()
 importNormalized s = modify . setImport s . bigStep (smallStep normal)
 
 clearImports :: MonadState AppState m => m ()
-clearImports = modify (\(App bs _ lc) -> App bs empty lc)
+clearImports = modify (\(App bs _ _ lc) -> App bs empty [] lc)
 
 ------------------------------------- REPL -------------------------------------
 
@@ -60,8 +64,9 @@ main :: IO ()
 main = evalStateT (runInputT settings loop) app
   where
     app = App {
-      bindings    = empty, 
-      imports     = empty, 
+      bindings    = empty,
+      imports     = empty,
+      modules     = [],
       lastCommand = Say NoLastCommand
     }
     settings =
@@ -81,7 +86,8 @@ completeFromBindings = completeWord escapeChar whitespace impl
 
 loop :: InputT (StateT AppState IO) ()
 loop = do
-  line <- getInputLine "> "
+  moduleNames <- lift $ gets modules
+  line <- getInputLine $ concat (map (\s -> s ++ " ") moduleNames) ++ "> "
   command <- lift $ case maybe (Just Quit) parseCommand line of
     Nothing -> lastCommand <$> get
     Just cmd -> modify (writeCmd cmd) $> cmd
@@ -95,7 +101,10 @@ loop = do
         for ss (lift . importModule) >>= 
         replyAll . concat
       Append -> for ss (lift . importModule) >>= replyAll . concat
-    Reload -> reply "TODO"
+    Reload -> do
+      moduleNames <- (lift $ gets modules)
+      lift $ clearImports
+      for moduleNames (lift . importModule) >>= replyAll . concat
     Say msg -> reply msg
     Quit -> outputStrLn "Leaving Lambda."
   where
@@ -126,6 +135,7 @@ importModule ::
   (MonadState AppState m, MonadIO m) => String -> m [BindingError]
 importModule moduleName = do
   (parseErrors, bindings) <- liftIO (parseModule fileName <$> readFile fileName)
+  _ <- modify $ addModule moduleName
   resolveErrors <- fmap catMaybes . for bindings $ \(Label nm te) -> do
     state <- get
     case resolve' te state of
