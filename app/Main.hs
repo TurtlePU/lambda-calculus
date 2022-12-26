@@ -87,7 +87,7 @@ completeFromBindings = completeWord escapeChar whitespace impl
 loop :: InputT (StateT AppState IO) ()
 loop = do
   moduleNames <- lift $ gets modules
-  line <- getInputLine $ concat (map (\s -> s ++ " ") moduleNames) ++ "> "
+  line <- getInputLine $ unwords moduleNames ++ "> "
   command <- lift $ case maybe (Just Quit) parseCommand line of
     Nothing -> lastCommand <$> get
     Just cmd -> modify (writeCmd cmd) $> cmd
@@ -135,7 +135,7 @@ importModule ::
   (MonadState AppState m, MonadIO m) => String -> m [BindingError]
 importModule moduleName = do
   (parseErrors, bindings) <- liftIO (parseModule fileName <$> readFile fileName)
-  _ <- modify $ addModule moduleName
+  modify $ addModule moduleName
   resolveErrors <- fmap catMaybes . for bindings $ \(Label nm te) -> do
     state <- get
     case resolve' te state of
