@@ -1,12 +1,9 @@
 module Command where
 
-import Data.Char (isSpace)
-import Data.Labeled (Labeled (Label))
-import Data.List (foldl1')
-import Data.Term (Term (..))
+import Data.Labeled (Labeled)
+import Data.Term (Term)
 import Data.Void (Void)
 import Text.Megaparsec (ParseErrorBundle, errorBundlePretty)
-import qualified Text.Megaparsec.Char.Lexer as L
 
 data Command
   = Bind (Labeled Term)

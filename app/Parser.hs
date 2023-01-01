@@ -58,7 +58,7 @@ parseCommand s = case runParser command "<interactive>" s of
         "" -> pure Nothing
         w -> case elems (submap w finishes) of
           finish : _ -> Just <$> finish
-          _ -> return . Just . Say $ UnknownCommand w
+          [] -> return . Just . Say $ UnknownCommand w
 
     finishes ::
       (Token s ~ Char, Tokens s ~ String, MonadParsec e s m) =>

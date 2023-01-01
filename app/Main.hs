@@ -20,12 +20,12 @@ import Text.Megaparsec (errorBundlePretty)
 
 ----------------------------------- AppState -----------------------------------
 
-data AppState = App {
-  bindings    :: StringTrie Term,
-  imports     :: StringTrie Term,
-  modules     :: [String],
-  lastCommand :: Command
-}
+data AppState = App
+  { bindings :: StringTrie Term,
+    imports :: StringTrie Term,
+    modules :: [String],
+    lastCommand :: Command
+  }
 
 matchingKeys :: String -> AppState -> [String]
 matchingKeys s = keys . submap s . bindings
@@ -37,14 +37,15 @@ setImport :: String -> Term -> AppState -> AppState
 setImport n t (App bs im md lc) = App bs (insert n t im) md lc
 
 addModule :: String -> AppState -> AppState
-addModule n (App bs im md lc) = App bs im (n: md) lc
+addModule n (App bs im md lc) = App bs im (n : md) lc
 
 writeCmd :: Command -> AppState -> AppState
 writeCmd c s = s {lastCommand = c}
 
 allBindings :: AppState -> [Labeled Term]
-allBindings = map (uncurry Label) . toList . 
-  (\a -> merge (bindings a) (imports a))
+allBindings =
+  map (uncurry Label) . toList
+    . (\a -> merge (bindings a) (imports a))
 
 resolve' :: Term -> AppState -> Either ResolveError Term
 resolve' t = flip resolve t . (\a -> merge (bindings a) (imports a))
@@ -63,12 +64,13 @@ clearImports = modify (\(App bs _ _ lc) -> App bs empty [] lc)
 main :: IO ()
 main = evalStateT (runInputT settings loop) app
   where
-    app = App {
-      bindings    = empty,
-      imports     = empty,
-      modules     = [],
-      lastCommand = Say NoLastCommand
-    }
+    app =
+      App
+        { bindings = empty,
+          imports = empty,
+          modules = [],
+          lastCommand = Say NoLastCommand
+        }
     settings =
       Settings
         { complete = completeFromBindings,
@@ -96,14 +98,14 @@ loop = do
     (Eval nm tr te) -> lift get >>= onEvalResolve nm tr . resolve' te
     ShowBindings -> lift get >>= replyAll . allBindings
     (Load lm ss) -> case lm of
-      Reset -> 
-        (lift clearImports) >> 
-        for ss (lift . importModule) >>= 
-        replyAll . concat
+      Reset -> do
+        lift clearImports
+        errors <- for ss (lift . importModule)
+        replyAll (concat errors)
       Append -> for ss (lift . importModule) >>= replyAll . concat
     Reload -> do
-      moduleNames <- (lift $ gets modules)
-      lift $ clearImports
+      moduleNames <- lift (gets modules)
+      lift clearImports
       for moduleNames (lift . importModule) >>= replyAll . concat
     Say msg -> reply msg
     Quit -> outputStrLn "Leaving Lambda."
